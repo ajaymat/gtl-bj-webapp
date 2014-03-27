@@ -35,10 +35,11 @@ end
 
 before do
   @show_hit_or_stay_buttons = true
+  @dealer_deal_button = false
 end
 
 get '/' do
-  if session[:player_name]
+  if params[:player_name]
     redirect '/game'
   else
     redirect '/new_player'
@@ -75,6 +76,11 @@ get '/game' do
   session[:player_hand] << session[:deck].pop
   session[:dealer_hand] << session[:deck].pop
   session[:player_hand] << session[:deck].pop
+  player_total = calculate_total(session[:player_hand])
+  if player_total == 21
+      @success = "Congratulations! #{session[:player_name]} has hit BlackJack!"
+      @show_hit_or_stay_buttons = false
+  end
   erb :game
 end
 
@@ -84,7 +90,7 @@ post '/game/player/hit' do
   if player_total == 21
       @success = "Congratulations! #{session[:player_name]} has hit BlackJack!"
       @show_hit_or_stay_buttons = false
-  elsif calculate_total(session[:player_hand]) > 21
+  elsif player_total > 21
     @error = "Sorry, it looks like you busted."
     @show_hit_or_stay_buttons = false
   end
@@ -94,11 +100,41 @@ end
 post '/game/player/stay' do
   @success = "You have chosen to stay."
   @show_hit_or_stay_buttons = false
+  redirect '/game/dealer'
   erb :game
 end
 
-#redirect to game_page
-#create deck
-#deal two cards each
-#ask player what he wants to do
-#after player turn, do dealer turn
+get '/game/dealer' do
+  @show_hit_or_stay_buttons = false
+  dealer_total = calculate_total(session[:dealer_hand])
+  if dealer_total == 21
+    @error = "Sorry, dealer hit blackjack!"
+  elsif dealer_total > 21
+    @success = "Congratulations, dealer busted. You win!"
+  elsif dealer_total >= 17
+    redirect '/game/compare'
+  else
+    @dealer_deal_button = true
+  end
+  erb :game   
+end
+
+post '/game/dealer/deal' do
+  session[:dealer_hand] << session[:deck].pop
+  redirect '/game/dealer'
+end
+
+get '/game/compare' do
+  @dealer_deal_button = false
+  @show_hit_or_stay_buttons = false
+  player_total = calculate_total(session[:player_hand])
+  dealer_total = calculate_total(session[:dealer_hand])
+  if player_total < dealer_total
+    @error = "Sorry, you lost."
+  elsif player_total > dealer_total
+    @success = "Congrats, you won!"
+  else
+    @success = "Its a tie"
+  end
+  erb :game
+end
